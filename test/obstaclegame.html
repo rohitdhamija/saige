@@ -8,13 +8,14 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: white;
             text-align: center;
+            background: linear-gradient(to bottom, #87CEEB, #1E90FF);
         }
         canvas {
             display: block;
             margin: auto;
             transition: background 1s;
+            background: radial-gradient(circle, #f5f5dc, #d3d3d3);
         }
         .restart-button {
             display: none;
@@ -32,16 +33,29 @@
 <body>
     <canvas id="gameCanvas"></canvas>
     <button id="restartButton" class="restart-button">Restart Game</button>
+    <audio id="moveSound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
+    <audio id="scoreSound" src="https://www.soundjay.com/button/beep-09.wav"></audio>
+    <audio id="gameOverSound" src="https://www.soundjay.com/button/beep-10.wav"></audio>
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const restartButton = document.getElementById("restartButton");
+        const moveSound = document.getElementById("moveSound");
+        const scoreSound = document.getElementById("scoreSound");
+        const gameOverSound = document.getElementById("gameOverSound");
         
         canvas.width = 400;
         canvas.height = 600;
         
         let player, obstacles, score, gameRunning, level;
-        let colors = ["white", "#f0f0f0", "#d3d3d3", "#a9a9a9", "#808080", "#505050"];
+        let backgrounds = [
+            "linear-gradient(to bottom, #87CEEB, #1E90FF)",
+            "linear-gradient(to bottom, #FFD700, #FFA500)",
+            "linear-gradient(to bottom, #90EE90, #008000)",
+            "linear-gradient(to bottom, #FF69B4, #8B0000)",
+            "linear-gradient(to bottom, #8A2BE2, #4B0082)",
+            "linear-gradient(to bottom, #2F4F4F, #000000)"
+        ];
         
         function initGame() {
             player = {
@@ -62,7 +76,14 @@
             updateGame();
         }
         
+        function updateBackground() {
+            document.body.style.background = backgrounds[Math.min(Math.floor(level / 5), backgrounds.length - 1)];
+        }
+        
         document.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                moveSound.play();
+            }
             if (event.key === "ArrowLeft") {
                 player.dx = -player.speed;
             } else if (event.key === "ArrowRight") {
@@ -74,34 +95,6 @@
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                 player.dx = 0;
             }
-        });
-        
-        canvas.addEventListener("touchstart", (event) => {
-            const touchX = event.touches[0].clientX - canvas.getBoundingClientRect().left;
-            const touchY = event.touches[0].clientY - canvas.getBoundingClientRect().top;
-            
-            if (
-                touchX >= player.x &&
-                touchX <= player.x + player.width &&
-                touchY >= player.y &&
-                touchY <= player.y + player.height
-            ) {
-                player.dragging = true;
-            }
-        });
-        
-        canvas.addEventListener("touchmove", (event) => {
-            if (player.dragging) {
-                const touchX = event.touches[0].clientX - canvas.getBoundingClientRect().left;
-                player.x = touchX - player.width / 2;
-                
-                if (player.x < 0) player.x = 0;
-                if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
-            }
-        });
-        
-        canvas.addEventListener("touchend", () => {
-            player.dragging = false;
         });
         
         function spawnObstacle() {
@@ -140,6 +133,7 @@
                     player.y < obstacle.y + obstacle.height &&
                     player.y + player.height > obstacle.y
                 ) {
+                    gameOverSound.play();
                     gameRunning = false;
                     restartButton.style.display = "block";
                     alert("Game Over! Score: " + score + " | Level: " + level);
@@ -148,9 +142,10 @@
                 if (obstacle.y > canvas.height) {
                     obstacles.splice(index, 1);
                     score++;
+                    scoreSound.play();
                     if (score % 10 === 0) {
                         level++;
-                        document.body.style.background = colors[Math.min(level / 5, colors.length - 1)];
+                        updateBackground();
                     }
                 }
             });

@@ -15,33 +15,10 @@
             display: block;
             margin: auto;
         }
-        .controls {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 20px;
-        }
-        .button {
-            width: 60px;
-            height: 60px;
-            font-size: 24px;
-            border: none;
-            background: gray;
-            color: white;
-            border-radius: 50%;
-            cursor: pointer;
-            user-select: none;
-        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
-    <div class="controls">
-        <button class="button" id="left">⬅️</button>
-        <button class="button" id="right">➡️</button>
-    </div>
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
@@ -62,32 +39,30 @@
         let score = 0;
         let gameRunning = true;
         
-        function moveLeft() {
-            player.dx = -player.speed;
-        }
-        function moveRight() {
-            player.dx = player.speed;
-        }
-        function stopMove() {
-            player.dx = 0;
-        }
+        canvas.addEventListener("touchstart", (event) => {
+            const touchX = event.touches[0].clientX;
+            if (touchX < canvas.width / 2) {
+                player.dx = -player.speed;
+            } else {
+                player.dx = player.speed;
+            }
+        });
         
-        document.getElementById("left").addEventListener("touchstart", moveLeft);
-        document.getElementById("left").addEventListener("touchend", stopMove);
-        document.getElementById("right").addEventListener("touchstart", moveRight);
-        document.getElementById("right").addEventListener("touchend", stopMove);
+        canvas.addEventListener("touchend", () => {
+            player.dx = 0;
+        });
         
         document.addEventListener("keydown", (event) => {
             if (event.key === "ArrowLeft") {
-                moveLeft();
+                player.dx = -player.speed;
             } else if (event.key === "ArrowRight") {
-                moveRight();
+                player.dx = player.speed;
             }
         });
         
         document.addEventListener("keyup", (event) => {
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                stopMove();
+                player.dx = 0;
             }
         });
         

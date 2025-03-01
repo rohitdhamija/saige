@@ -15,30 +15,49 @@
             display: block;
             margin: auto;
         }
+        .restart-button {
+            display: none;
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+    <button id="restartButton" class="restart-button">Restart Game</button>
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
+        const restartButton = document.getElementById("restartButton");
         
         canvas.width = 400;
         canvas.height = 600;
         
-        const player = {
-            x: canvas.width / 2 - 20,
-            y: canvas.height - 60,
-            width: 40,
-            height: 40,
-            speed: 5,
-            dx: 0,
-            dragging: false
-        };
+        let player, obstacles, score, gameRunning;
         
-        let obstacles = [];
-        let score = 0;
-        let gameRunning = true;
+        function initGame() {
+            player = {
+                x: canvas.width / 2 - 20,
+                y: canvas.height - 60,
+                width: 40,
+                height: 40,
+                speed: 5,
+                dx: 0,
+                dragging: false
+            };
+            
+            obstacles = [];
+            score = 0;
+            gameRunning = true;
+            restartButton.style.display = "none";
+            updateGame();
+        }
         
         canvas.addEventListener("touchstart", (event) => {
             const touchX = event.touches[0].clientX - canvas.getBoundingClientRect().left;
@@ -98,6 +117,7 @@
                     player.y + player.height > obstacle.y
                 ) {
                     gameRunning = false;
+                    restartButton.style.display = "block";
                     alert("Game Over! Score: " + score);
                 }
                 
@@ -114,8 +134,10 @@
             requestAnimationFrame(updateGame);
         }
         
+        restartButton.addEventListener("click", initGame);
+        
         setInterval(spawnObstacle, 1000);
-        updateGame();
+        initGame();
     </script>
 </body>
 </html>

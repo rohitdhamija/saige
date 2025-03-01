@@ -44,6 +44,23 @@
         const scoreSound = document.getElementById("scoreSound");
         const gameOverSound = document.getElementById("gameOverSound");
         
+        let soundEnabled = false;
+        function enableSounds() {
+            if (!soundEnabled) {
+                moveSound.play().catch(() => {});
+                scoreSound.play().catch(() => {});
+                gameOverSound.play().catch(() => {});
+                moveSound.pause();
+                scoreSound.pause();
+                gameOverSound.pause();
+                soundEnabled = true;
+            }
+        }
+        
+        canvas.addEventListener("click", enableSounds);
+        document.addEventListener("keydown", enableSounds);
+        document.addEventListener("touchstart", enableSounds);
+        
         canvas.width = 400;
         canvas.height = 600;
         
@@ -82,6 +99,7 @@
         
         document.addEventListener("keydown", (event) => {
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                moveSound.currentTime = 0;
                 moveSound.play();
             }
             if (event.key === "ArrowLeft") {

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vertical Scrolling Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: white;
+            text-align: center;
+        }
+        canvas {
+            display: block;
+            margin: auto;
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+        }
+        .button {
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            border: none;
+            background: gray;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div class="controls">
+        <button class="button" id="left">⬅️</button>
+        <button class="button" id="right">➡️</button>
+    </div>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        canvas.width = 400;
+        canvas.height = 600;
+        
+        const player = {
+            x: canvas.width / 2 - 20,
+            y: canvas.height - 60,
+            width: 40,
+            height: 40,
+            speed: 5,
+            dx: 0
+        };
+        
+        let obstacles = [];
+        let score = 0;
+        let gameRunning = true;
+        
+        function moveLeft() {
+            player.dx = -player.speed;
+        }
+        function moveRight() {
+            player.dx = player.speed;
+        }
+        function stopMove() {
+            player.dx = 0;
+        }
+        
+        document.getElementById("left").addEventListener("touchstart", moveLeft);
+        document.getElementById("left").addEventListener("touchend", stopMove);
+        document.getElementById("right").addEventListener("touchstart", moveRight);
+        document.getElementById("right").addEventListener("touchend", stopMove);
+        
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowLeft") {
+                moveLeft();
+            } else if (event.key === "ArrowRight") {
+                moveRight();
+            }
+        });
+        
+        document.addEventListener("keyup", (event) => {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                stopMove();
+            }
+        });
+        
+        function spawnObstacle() {
+            const obstacle = {
+                x: Math.random() * (canvas.width - 50),
+                y: 0,
+                width: 50,
+                height: 20,
+                speed: 3
+            };
+            obstacles.push(obstacle);
+        }
+        
+        function updateGame() {
+            if (!gameRunning) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            player.x += player.dx;
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+            
+            ctx.fillStyle = "blue";
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            ctx.fillStyle = "red";
+            obstacles.forEach((obstacle, index) => {
+                obstacle.y += obstacle.speed;
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+                
+                if (
+                    player.x < obstacle.x + obstacle.width &&
+                    player.x + player.width > obstacle.x &&
+                    player.y < obstacle.y + obstacle.height &&
+                    player.y + player.height > obstacle.y
+                ) {
+                    gameRunning = false;
+                    alert("Game Over! Score: " + score);
+                }
+                
+                if (obstacle.y > canvas.height) {
+                    obstacles.splice(index, 1);
+                    score++;
+                }
+            });
+            
+            ctx.fillStyle = "black";
+            ctx.font = "20px Arial";
+            ctx.fillText("Score: " + score, 10, 20);
+            
+            requestAnimationFrame(updateGame);
+        }
+        
+        setInterval(spawnObstacle, 1000);
+        updateGame();
+    </script>
+</body>
+</html>

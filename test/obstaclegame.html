@@ -39,7 +39,7 @@
         canvas.width = 400;
         canvas.height = 600;
         
-        let player, obstacles, score, gameRunning;
+        let player, obstacles, score, gameRunning, level;
         
         function initGame() {
             player = {
@@ -54,6 +54,7 @@
             
             obstacles = [];
             score = 0;
+            level = 1;
             gameRunning = true;
             restartButton.style.display = "none";
             updateGame();
@@ -88,12 +89,15 @@
         });
         
         function spawnObstacle() {
+            let obstacleSize = 50 + level * 2; 
+            let obstacleSpeed = 3 + level * 0.5;
+            
             const obstacle = {
-                x: Math.random() * (canvas.width - 50),
+                x: Math.random() * (canvas.width - obstacleSize),
                 y: 0,
-                width: 50,
-                height: 20,
-                speed: 3
+                width: obstacleSize,
+                height: 20 + level * 2,
+                speed: obstacleSpeed
             };
             obstacles.push(obstacle);
         }
@@ -118,18 +122,22 @@
                 ) {
                     gameRunning = false;
                     restartButton.style.display = "block";
-                    alert("Game Over! Score: " + score);
+                    alert("Game Over! Score: " + score + " | Level: " + level);
                 }
                 
                 if (obstacle.y > canvas.height) {
                     obstacles.splice(index, 1);
                     score++;
+                    if (score % 10 === 0) {
+                        level++;
+                    }
                 }
             });
             
             ctx.fillStyle = "black";
             ctx.font = "20px Arial";
             ctx.fillText("Score: " + score, 10, 20);
+            ctx.fillText("Level: " + level, 320, 20);
             
             requestAnimationFrame(updateGame);
         }

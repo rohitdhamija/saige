@@ -14,7 +14,6 @@
         canvas {
             display: block;
             margin: auto;
-            transition: background 1s;
             background: radial-gradient(circle, #f5f5dc, #d3d3d3);
         }
         .restart-button {
@@ -43,28 +42,11 @@
         const moveSound = document.getElementById("moveSound");
         const scoreSound = document.getElementById("scoreSound");
         const gameOverSound = document.getElementById("gameOverSound");
-        
-        let soundEnabled = false;
-        function enableSounds() {
-            if (!soundEnabled) {
-                moveSound.play().catch(() => {});
-                scoreSound.play().catch(() => {});
-                gameOverSound.play().catch(() => {});
-                moveSound.pause();
-                scoreSound.pause();
-                gameOverSound.pause();
-                soundEnabled = true;
-            }
-        }
-        
-        canvas.addEventListener("click", enableSounds);
-        document.addEventListener("keydown", enableSounds);
-        document.addEventListener("touchstart", enableSounds);
-        
+
         canvas.width = 400;
         canvas.height = 600;
-        
-        let player, obstacles, score, gameRunning, level;
+
+        let player, obstacles, score, gameRunning, level, difficultyFactor;
         let backgrounds = [
             "linear-gradient(to bottom, #87CEEB, #1E90FF)",
             "linear-gradient(to bottom, #FFD700, #FFA500)",
@@ -73,7 +55,7 @@
             "linear-gradient(to bottom, #8A2BE2, #4B0082)",
             "linear-gradient(to bottom, #2F4F4F, #000000)"
         ];
-        
+
         function initGame() {
             player = {
                 x: canvas.width / 2 - 20,
@@ -81,22 +63,28 @@
                 width: 40,
                 height: 40,
                 speed: 5,
-                dx: 0,
-                dragging: false
+                dx: 0
             };
             
             obstacles = [];
             score = 0;
             level = 1;
+            difficultyFactor = 1.0; // Starts at normal difficulty
             gameRunning = true;
             restartButton.style.display = "none";
             updateGame();
         }
-        
+
+        function updateDifficulty() {
+            difficultyFactor = 1 + score / 50; // Gradually increases difficulty
+            player.speed = 5 + difficultyFactor * 0.3; // Slight increase in player speed
+            updateBackground();
+        }
+
         function updateBackground() {
             document.body.style.background = backgrounds[Math.min(Math.floor(level / 5), backgrounds.length - 1)];
         }
-        
+
         document.addEventListener("keydown", (event) => {
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                 moveSound.currentTime = 0;
@@ -108,27 +96,27 @@
                 player.dx = player.speed;
             }
         });
-        
+
         document.addEventListener("keyup", (event) => {
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                 player.dx = 0;
             }
         });
-        
+
         function spawnObstacle() {
-            let obstacleSize = 50 + level * 2; 
-            let obstacleSpeed = 3 + level * 0.5;
+            let obstacleSize = 50 + difficultyFactor * 5; // Gradually increases size
+            let obstacleSpeed = 3 + difficultyFactor * 0.8; // Smooth speed increase
             
             const obstacle = {
                 x: Math.random() * (canvas.width - obstacleSize),
                 y: 0,
                 width: obstacleSize,
-                height: 20 + level * 2,
+                height: 20 + difficultyFactor * 3,
                 speed: obstacleSpeed
             };
             obstacles.push(obstacle);
         }
-        
+
         function updateGame() {
             if (!gameRunning) return;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -163,7 +151,7 @@
                     scoreSound.play();
                     if (score % 10 === 0) {
                         level++;
-                        updateBackground();
+                        updateDifficulty();
                     }
                 }
             });
@@ -175,9 +163,8 @@
             
             requestAnimationFrame(updateGame);
         }
-        
+
         restartButton.addEventListener("click", initGame);
-        
         setInterval(spawnObstacle, 1000);
         initGame();
     </script>

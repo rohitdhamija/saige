@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Spiral Alphabet Flow Game</title>
+  <style>
+    /* Container to hold the spiraling letters */
+    #gameContainer {
+      position: relative;
+      width: 400px;       /* Adjust your preferred width */
+      height: 600px;      /* Adjust your preferred height */
+      margin: 50px auto;  /* Center the container on the page */
+      background-color: #fafafa;
+      border: 2px solid #ccc;
+      overflow: hidden;
+    }
+
+    .letter {
+      position: absolute; /* We’ll set .style.left/.top via JS */
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;  /* Prevent text selection */
+    }
+  </style>
+</head>
+
+<body>
+  <h1 style="text-align:center;">Spiral Alphabet Flow</h1>
+  <div id="gameContainer"></div>
+
+  <script>
+    const gameContainer = document.getElementById('gameContainer');
+    const containerWidth = gameContainer.clientWidth;
+    const containerHeight = gameContainer.clientHeight;
+
+    // Generate a random capital letter (A–Z).
+    function getRandomLetter() {
+      const alphabets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      const randomIndex = Math.floor(Math.random() * alphabets.length);
+      return alphabets[randomIndex];
+    }
+
+    // Use Web Speech API to speak the letter (if supported).
+    function speakLetter(letter) {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(letter);
+        speechSynthesis.speak(utterance);
+      } else {
+        alert("Your browser does not support speech synthesis.\nLetter: " + letter);
+      }
+    }
+
+    // Create and animate a single letter in a spiral.
+    function createLetter() {
+      const letterEl = document.createElement('div');
+      const letter = getRandomLetter();
+      letterEl.className = 'letter';
+      letterEl.textContent = letter;
+
+      // Random horizontal "center" for the spiral
+      // (so each letter’s spiral can start at different spots).
+      const spiralCenterX = Math.random() * containerWidth;
+
+      // Listen for clicks to speak + remove.
+      letterEl.addEventListener('click', () => {
+        speakLetter(letter);
+        if (gameContainer.contains(letterEl)) {
+          gameContainer.removeChild(letterEl);
+        }
+      });
+
+      // Start the letter near the bottom.
+      // We'll animate for 5 seconds (5000ms).
+      const duration = 5000;
+      const startTime = performance.now();
+
+      // Spiral parameters:
+      // Number of complete spins while moving up:
+      const rotations = 2; 
+      // Spiral radius (pixels) - can be a constant or grow/shrink.
+      const radius = 30;
+
+      // The animation loop (via requestAnimationFrame)
+      function animate(now) {
+        const elapsed = now - startTime;
+        const t = elapsed / duration; // from 0 to 1 over 5s
+
+        if (t >= 1) {
+          // Animation finished: remove the letter from container
+          if (gameContainer.contains(letterEl)) {
+            gameContainer.removeChild(letterEl);
+          }
+          return;
+        }
+
+        // Angle goes from 0 to (2π * rotations) over the animation
+        const angle = 2 * Math.PI * rotations * t;
+
+        // We'll move upward from bottom (y=containerHeight) to top (y=0),
+        // plus a small circular offset from the spiral radius.
+        const x = spiralCenterX + radius * Math.cos(angle);
+        const y = (1 - t) * containerHeight + radius * Math.sin(angle);
+
+        // Position the letter
+        letterEl.style.left = x + 'px';
+        letterEl.style.top = y + 'px';
+
+        requestAnimationFrame(animate);
+      }
+
+      // Start the animation
+      requestAnimationFrame(animate);
+
+      // Add letter to the DOM
+      gameContainer.appendChild(letterEl);
+    }
+
+    // Create a new letter every 1.5 seconds
+    setInterval(createLetter, 1500);
+  </script>
+</body>
+</html>

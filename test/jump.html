@@ -17,7 +17,7 @@
         #game-container {
             width: 400px;
             height: 600px;
-            background: #87CEEB;
+            background: linear-gradient(to bottom, #87CEEB, #4682B4);
             position: relative;
             overflow: hidden;
             border: 2px solid black;
@@ -32,7 +32,7 @@
             position: absolute;
             left: 180px;
             bottom: 0;
-            transition: bottom 0.1s, left 0.1s;
+            transition: bottom 0.1s, left 0.1s, transform 0.1s;
         }
 
         .platform {
@@ -40,36 +40,53 @@
             height: 20px;
             background: #666633;
             position: absolute;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            text-shadow: 1px 1px 2px black;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
         <div id="player"></div>
+        <div id="score">Score: 0</div>
     </div>
 
     <script>
         const gameContainer = document.getElementById('game-container');
         const player = document.getElementById('player');
+        const scoreDisplay = document.getElementById('score');
         
-        // Mobile detection
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                         ('ontouchstart' in window) || 
                         (navigator.maxTouchPoints > 0);
 
-        // Game variables
         let playerX = 180;
         let playerY = 0;
         let velocity = 0;
-        let horizontalVelocity = 0; // For mobile directional jumps
+        let horizontalVelocity = 0;
         let isJumping = false;
+        let score = 0;
         const gravity = 0.5;
         const jumpForce = 12;
         const moveSpeed = 5;
         const platforms = [];
         const platformSpeed = 2;
         
-        // Platform generation
         function createPlatform(y) {
             const platform = document.createElement('div');
             platform.className = 'platform';
@@ -78,16 +95,15 @@
             gameContainer.appendChild(platform);
             platforms.push({
                 element: platform,
-                y: y
+                y: y,
+                landed: false // Track if landed on
             });
         }
 
-        // Initial platforms
         for (let i = 0; i < 5; i++) {
             createPlatform(i * 150);
         }
 
-        // Desktop controls
         let leftPressed = false;
         let rightPressed = false;
 
@@ -97,6 +113,7 @@
                     if (!isJumping) {
                         velocity = jumpForce;
                         isJumping = true;
+                        player.style.transform = 'scaleY(1.2) scaleX(0.8)';
                     }
                     break;
                 case 'ArrowLeft':
@@ -119,7 +136,6 @@
             }
         });
 
-        // Mobile controls (touch-based directional jumping)
         if (isMobile) {
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
@@ -129,40 +145,31 @@
                     const playerLeft = playerRect.left - gameContainer.getBoundingClientRect().left;
                     const playerRight = playerRect.right - gameContainer.getBoundingClientRect().left;
 
-                    velocity = jumpForce; // Always jump up
+                    velocity = jumpForce;
                     isJumping = true;
+                    player.style.transform = 'scaleY(1.2) scaleX(0.8)';
 
-                    // Check if touch is on player (within player bounds)
                     if (touchX >= playerLeft && touchX <= playerRight) {
-                        horizontalVelocity = 0; // Straight up
-                    }
-                    // Left side of screen (excluding player area)
-                    else if (touchX < gameContainer.offsetWidth / 2) {
-                        horizontalVelocity = -moveSpeed; // Jump left
-                    }
-                    // Right side of screen (excluding player area)
-                    else {
-                        horizontalVelocity = moveSpeed; // Jump right
+                        horizontalVelocity = 0;
+                    } else if (touchX < gameContainer.offsetWidth / 2) {
+                        horizontalVelocity = -moveSpeed;
+                    } else {
+                        horizontalVelocity = moveSpeed;
                     }
                 }
             });
 
             gameContainer.addEventListener('touchend', (e) => {
                 e.preventDefault();
-                // Don't reset horizontalVelocity here; let it persist until landing
             });
         }
 
-        // Game loop
         function update() {
-            // Apply gravity
             velocity -= gravity;
             playerY += velocity;
             
-            // Horizontal movement
             const playerWidth = 40;
             if (!isMobile) {
-                // Desktop keyboard controls
                 if (leftPressed && playerX > 0) {
                     playerX -= moveSpeed;
                 }
@@ -170,29 +177,28 @@
                     playerX += moveSpeed;
                 }
             } else {
-                // Mobile touch controls
                 if (playerX > 0 && playerX < gameContainer.offsetWidth - playerWidth) {
                     playerX += horizontalVelocity;
                 }
                 playerX = Math.max(0, Math.min(playerX, gameContainer.offsetWidth - playerWidth));
-                // Dampen horizontal velocity slightly while in air
                 horizontalVelocity *= 0.98;
             }
 
-            // Ground collision
             if (playerY <= 0) {
                 playerY = 0;
                 velocity = 0;
-                horizontalVelocity = 0; // Reset horizontal movement on landing
-                isJumping = false;
+                horizontalVelocity = 0;
+                if (isJumping) {
+                    player.style.transform = 'scaleY(0.8) scaleX(1.2)';
+                    setTimeout(() => player.style.transform = 'scale(1)', 100);
+                    isJumping = false;
+                }
             }
 
-            // Platform collision and movement
             platforms.forEach((platform, index) => {
                 platform.y -= platformSpeed;
                 platform.element.style.bottom = platform.y + 'px';
 
-                // Check collision with player
                 const playerRect = player.getBoundingClientRect();
                 const platRect = platform.element.getBoundingClientRect();
                 
@@ -203,11 +209,19 @@
                     velocity < 0) {
                     playerY = platform.y + 20;
                     velocity = 0;
-                    horizontalVelocity = 0; // Reset horizontal movement on landing
-                    isJumping = false;
+                    horizontalVelocity = 0;
+                    if (isJumping) {
+                        if (!platform.landed) {
+                            score++;
+                            platform.landed = true;
+                            scoreDisplay.textContent = `Score: ${score}`;
+                        }
+                        player.style.transform = 'scaleY(0.8) scaleX(1.2)';
+                        setTimeout(() => player.style.transform = 'scale(1)', 100);
+                        isJumping = false;
+                    }
                 }
 
-                // Remove and regenerate platforms
                 if (platform.y < -20) {
                     gameContainer.removeChild(platform.element);
                     platforms.splice(index, 1);
@@ -215,23 +229,22 @@
                 }
             });
 
-            // Update player position
             player.style.bottom = playerY + 'px';
             player.style.left = playerX + 'px';
 
-            // Game over condition
             if (playerY < -60) {
-                alert('Game Over! Refresh to restart.');
+                alert(`Game Over! Score: ${score}\nRefresh to restart.`);
                 playerY = 0;
                 playerX = 180;
                 velocity = 0;
                 horizontalVelocity = 0;
+                score = 0;
+                scoreDisplay.textContent = `Score: ${score}`;
             }
 
             requestAnimationFrame(update);
         }
 
-        // Start game
         update();
     </script>
 </body>

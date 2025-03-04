@@ -17,7 +17,7 @@
         #game-container {
             width: 400px;
             height: 600px;
-            background: linear-gradient(to bottom, #87CEEB, #4682B4);
+            background: #87CEEB;
             position: relative;
             overflow: hidden;
             border: 2px solid black;
@@ -32,7 +32,7 @@
             position: absolute;
             left: 180px;
             bottom: 0;
-            transition: bottom 0.1s, left 0.1s, transform 0.1s;
+            transition: bottom 0.1s, left 0.1s;
         }
 
         .platform {
@@ -40,53 +40,79 @@
             height: 20px;
             background: #666633;
             position: absolute;
-            opacity: 0;
-            animation: fadeIn 0.5s forwards;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        #score {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: Arial, sans-serif;
-            font-size: 20px;
-            text-shadow: 1px 1px 2px black;
         }
     </style>
 </head>
 <body>
     <div id="game-container">
         <div id="player"></div>
-        <div id="score">Score: 0</div>
     </div>
 
     <script>
         const gameContainer = document.getElementById('game-container');
         const player = document.getElementById('player');
-        const scoreDisplay = document.getElementById('score');
         
+        // Audio setup
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playJumpSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(600, audioCtx.currentTime); // High-pitched beep
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.1); // Short duration
+        }
+
+        function playLandSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(200, audioCtx.currentTime); // Lower thud
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.2); // Slightly longer
+        }
+
+        function playGameOverSound() {
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5); // Descending tone
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5); // Half-second duration
+        }
+
+        // Mobile detection
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                         ('ontouchstart' in window) || 
                         (navigator.maxTouchPoints > 0);
 
+        // Game variables
         let playerX = 180;
         let playerY = 0;
         let velocity = 0;
         let horizontalVelocity = 0;
         let isJumping = false;
-        let score = 0;
         const gravity = 0.5;
         const jumpForce = 12;
         const moveSpeed = 5;
         const platforms = [];
         const platformSpeed = 2;
         
+        // Platform generation
         function createPlatform(y) {
             const platform = document.createElement('div');
             platform.className = 'platform';
@@ -95,15 +121,16 @@
             gameContainer.appendChild(platform);
             platforms.push({
                 element: platform,
-                y: y,
-                landed: false // Track if landed on
+                y: y
             });
         }
 
+        // Initial platforms
         for (let i = 0; i < 5; i++) {
             createPlatform(i * 150);
         }
 
+        // Desktop controls
         let leftPressed = false;
         let rightPressed = false;
 
@@ -113,7 +140,7 @@
                     if (!isJumping) {
                         velocity = jumpForce;
                         isJumping = true;
-                        player.style.transform = 'scaleY(1.2) scaleX(0.8)';
+                        playJumpSound(); // Play jump sound
                     }
                     break;
                 case 'ArrowLeft':
@@ -136,6 +163,7 @@
             }
         });
 
+        // Mobile controls
         if (isMobile) {
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
@@ -147,7 +175,7 @@
 
                     velocity = jumpForce;
                     isJumping = true;
-                    player.style.transform = 'scaleY(1.2) scaleX(0.8)';
+                    playJumpSound(); // Play jump sound
 
                     if (touchX >= playerLeft && touchX <= playerRight) {
                         horizontalVelocity = 0;
@@ -164,10 +192,13 @@
             });
         }
 
+        // Game loop
         function update() {
+            // Apply gravity
             velocity -= gravity;
             playerY += velocity;
             
+            // Horizontal movement
             const playerWidth = 40;
             if (!isMobile) {
                 if (leftPressed && playerX > 0) {
@@ -184,17 +215,18 @@
                 horizontalVelocity *= 0.98;
             }
 
-            if (playerY <= 0) {
+            // Ground collision
+            if (playerY <= 0 && velocity < 0) {
                 playerY = 0;
                 velocity = 0;
                 horizontalVelocity = 0;
                 if (isJumping) {
-                    player.style.transform = 'scaleY(0.8) scaleX(1.2)';
-                    setTimeout(() => player.style.transform = 'scale(1)', 100);
+                    playLandSound(); // Play land sound
                     isJumping = false;
                 }
             }
 
+            // Platform collision and movement
             platforms.forEach((platform, index) => {
                 platform.y -= platformSpeed;
                 platform.element.style.bottom = platform.y + 'px';
@@ -211,13 +243,7 @@
                     velocity = 0;
                     horizontalVelocity = 0;
                     if (isJumping) {
-                        if (!platform.landed) {
-                            score++;
-                            platform.landed = true;
-                            scoreDisplay.textContent = `Score: ${score}`;
-                        }
-                        player.style.transform = 'scaleY(0.8) scaleX(1.2)';
-                        setTimeout(() => player.style.transform = 'scale(1)', 100);
+                        playLandSound(); // Play land sound
                         isJumping = false;
                     }
                 }
@@ -229,22 +255,24 @@
                 }
             });
 
+            // Update player position
             player.style.bottom = playerY + 'px';
             player.style.left = playerX + 'px';
 
+            // Game over condition
             if (playerY < -60) {
-                alert(`Game Over! Score: ${score}\nRefresh to restart.`);
+                playGameOverSound(); // Play game over sound
+                alert('Game Over! Refresh to restart.');
                 playerY = 0;
                 playerX = 180;
                 velocity = 0;
                 horizontalVelocity = 0;
-                score = 0;
-                scoreDisplay.textContent = `Score: ${score}`;
             }
 
             requestAnimationFrame(update);
         }
 
+        // Start game
         update();
     </script>
 </body>

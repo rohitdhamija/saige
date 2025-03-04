@@ -22,7 +22,7 @@
             overflow: hidden;
             border: 2px solid black;
             margin: 20px auto;
-            touch-action: none; /* Prevents default touch behavior */
+            touch-action: none;
         }
 
         #player {
@@ -61,13 +61,13 @@
         let playerX = 180;
         let playerY = 0;
         let velocity = 0;
+        let horizontalVelocity = 0; // For mobile directional jumps
         let isJumping = false;
         const gravity = 0.5;
         const jumpForce = 12;
         const moveSpeed = 5;
         const platforms = [];
         const platformSpeed = 2;
-        let dragVelocity = 0; // For mobile dragging
         
         // Platform generation
         function createPlatform(y) {
@@ -100,10 +100,10 @@
                     }
                     break;
                 case 'ArrowLeft':
-                    if (!isMobile) leftPressed = true; // Only on desktop
+                    if (!isMobile) leftPressed = true;
                     break;
                 case 'ArrowRight':
-                    if (!isMobile) rightPressed = true; // Only on desktop
+                    if (!isMobile) rightPressed = true;
                     break;
             }
         });
@@ -119,34 +119,37 @@
             }
         });
 
-        // Mobile controls (touch to jump, drag to move)
+        // Mobile controls (touch-based directional jumping)
         if (isMobile) {
-            let touchStartX = null;
-            let lastTouchX = null;
-
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 if (!isJumping) {
-                    velocity = jumpForce;
-                    isJumping = true;
-                }
-                touchStartX = e.touches[0].clientX;
-                lastTouchX = touchStartX;
-            });
+                    const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
+                    const playerRect = player.getBoundingClientRect();
+                    const playerLeft = playerRect.left - gameContainer.getBoundingClientRect().left;
+                    const playerRight = playerRect.right - gameContainer.getBoundingClientRect().left;
 
-            gameContainer.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                const touchX = e.touches[0].clientX;
-                const deltaX = touchX - lastTouchX;
-                dragVelocity = deltaX * 0.1; // Sensitivity for dragging
-                lastTouchX = touchX;
+                    velocity = jumpForce; // Always jump up
+                    isJumping = true;
+
+                    // Check if touch is on player (within player bounds)
+                    if (touchX >= playerLeft && touchX <= playerRight) {
+                        horizontalVelocity = 0; // Straight up
+                    }
+                    // Left side of screen (excluding player area)
+                    else if (touchX < gameContainer.offsetWidth / 2) {
+                        horizontalVelocity = -moveSpeed; // Jump left
+                    }
+                    // Right side of screen (excluding player area)
+                    else {
+                        horizontalVelocity = moveSpeed; // Jump right
+                    }
+                }
             });
 
             gameContainer.addEventListener('touchend', (e) => {
                 e.preventDefault();
-                touchStartX = null;
-                lastTouchX = null;
-                dragVelocity = 0;
+                // Don't reset horizontalVelocity here; let it persist until landing
             });
         }
 
@@ -167,18 +170,20 @@
                     playerX += moveSpeed;
                 }
             } else {
-                // Mobile drag controls
+                // Mobile touch controls
                 if (playerX > 0 && playerX < gameContainer.offsetWidth - playerWidth) {
-                    playerX += dragVelocity;
+                    playerX += horizontalVelocity;
                 }
                 playerX = Math.max(0, Math.min(playerX, gameContainer.offsetWidth - playerWidth));
-                dragVelocity *= 0.95; // Dampen for smooth stopping
+                // Dampen horizontal velocity slightly while in air
+                horizontalVelocity *= 0.98;
             }
 
             // Ground collision
             if (playerY <= 0) {
                 playerY = 0;
                 velocity = 0;
+                horizontalVelocity = 0; // Reset horizontal movement on landing
                 isJumping = false;
             }
 
@@ -198,6 +203,7 @@
                     velocity < 0) {
                     playerY = platform.y + 20;
                     velocity = 0;
+                    horizontalVelocity = 0; // Reset horizontal movement on landing
                     isJumping = false;
                 }
 
@@ -219,6 +225,7 @@
                 playerY = 0;
                 playerX = 180;
                 velocity = 0;
+                horizontalVelocity = 0;
             }
 
             requestAnimationFrame(update);

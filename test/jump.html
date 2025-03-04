@@ -163,32 +163,38 @@
             }
         });
 
-        // Mobile controls
+        // Mobile controls for drag-based jumping
         if (isMobile) {
+            let touchStartX = 0; // Store the initial touch position
+
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                if (!isJumping) {
-                    const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
-                    const playerRect = player.getBoundingClientRect();
-                    const playerLeft = playerRect.left - gameContainer.getBoundingClientRect().left;
-                    const playerRight = playerRect.right - gameContainer.getBoundingClientRect().left;
-
-                    velocity = jumpForce;
-                    isJumping = true;
-                    playJumpSound(); // Play jump sound
-
-                    if (touchX >= playerLeft && touchX <= playerRight) {
-                        horizontalVelocity = 0;
-                    } else if (touchX < gameContainer.offsetWidth / 2) {
-                        horizontalVelocity = -moveSpeed;
-                    } else {
-                        horizontalVelocity = moveSpeed;
-                    }
-                }
+                touchStartX = e.touches[0].clientX; // Record the starting X position of the touch
             });
 
             gameContainer.addEventListener('touchend', (e) => {
                 e.preventDefault();
+                if (!isJumping) {
+                    const touchEndX = e.changedTouches[0].clientX; // Record the ending X position of the touch
+                    const dragDistance = touchEndX - touchStartX; // Calculate the drag distance
+
+                    // Apply vertical jump force
+                    velocity = jumpForce;
+                    isJumping = true;
+                    playJumpSound(); // Play jump sound
+
+                    // Apply horizontal velocity based on drag direction
+                    if (dragDistance < 0) {
+                        // Dragged left
+                        horizontalVelocity = -moveSpeed * 2; // Increase horizontal speed for a stronger jump
+                    } else if (dragDistance > 0) {
+                        // Dragged right
+                        horizontalVelocity = moveSpeed * 2; // Increase horizontal speed for a stronger jump
+                    } else {
+                        // No horizontal movement (straight jump)
+                        horizontalVelocity = 0;
+                    }
+                }
             });
         }
 
@@ -212,7 +218,7 @@
                     playerX += horizontalVelocity;
                 }
                 playerX = Math.max(0, Math.min(playerX, gameContainer.offsetWidth - playerWidth));
-                horizontalVelocity *= 0.98;
+                horizontalVelocity *= 0.98; // Slow down horizontal movement over time
             }
 
             // Ground collision

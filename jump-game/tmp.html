@@ -220,42 +220,27 @@
 
         // Mobile controls
         if (isMobile) {
-            let touchStartX = 0;
-            let touchCurrentX = 0;
-            let isDragging = false;
-
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                touchStartX = e.touches[0].clientX;
-                touchCurrentX = touchStartX;
-                isDragging = false;
-            });
-
-            gameContainer.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                touchCurrentX = e.touches[0].clientX;
-                isDragging = true;
-            });
-
-            gameContainer.addEventListener('touchend', (e) => {
-                e.preventDefault();
                 if (!isJumping) {
-                    const dragDistance = touchCurrentX - touchStartX;
+                    const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left; // Touch X relative to game container
+                    const midpoint = gameContainer.offsetWidth / 2;
 
-                    // Trigger jump
+                    // Trigger vertical jump
                     velocity = jumpForce;
                     isJumping = true;
                     gameStarted = true;
                     playJumpSound();
 
-                    // Apply horizontal velocity based on drag distance
-                    if (Math.abs(dragDistance) > 10) { // Threshold to detect intentional drag
-                        horizontalVelocity = (dragDistance > 0 ? moveSpeed : -moveSpeed) * 2;
-                    } else {
-                        horizontalVelocity = 0; // No horizontal movement if drag is too small
+                    // Calculate horizontal jump distance
+                    if (touchX > midpoint) { // Right side
+                        const jumpDistance = touchX - playerX;
+                        horizontalVelocity = jumpDistance / 10; // Smooth movement
+                    } else if (touchX < midpoint) { // Left side
+                        const jumpDistance = playerX - touchX;
+                        horizontalVelocity = -jumpDistance / 10; // Negative for left
                     }
                 }
-                isDragging = false;
             });
         }
 

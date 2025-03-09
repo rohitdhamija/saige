@@ -12,6 +12,7 @@
             align-items: center;
             min-height: 100vh;
             background: #f0f0f0;
+            overflow: hidden; /* Prevent scrolling */
         }
         #game-container {
             width: 400px;
@@ -29,7 +30,7 @@
             position: absolute;
             left: 180px;
             bottom: 0;
-            transition: bottom 0.1s, left 0.1s;
+            transition: bottom 0.1s; /* Only animate vertical movement */
         }
         .platform {
             width: 80px;
@@ -87,6 +88,11 @@
         const platforms = [];
         const platformSpeed = 2;
 
+        // Cache game container's initial position
+        let containerRect = gameContainer.getBoundingClientRect();
+        let containerLeft = containerRect.left;
+        const containerWidth = gameContainer.offsetWidth;
+
         const backgroundImages = ['assets/background1.jpeg', 'assets/background2.jpeg'];
         gameContainer.style.backgroundImage = `url('${backgroundImages[Math.floor(Math.random() * backgroundImages.length)]}')`;
 
@@ -138,7 +144,7 @@
             const image = isHealth ? 'assets/health-platform.png' : platformImages[Math.floor(Math.random() * platformImages.length)];
             platform.style.backgroundImage = `url('${image}')`;
             platform.style.bottom = y + 'px';
-            platform.style.left = Math.random() * (gameContainer.offsetWidth - 80) + 'px';
+            platform.style.left = Math.random() * (containerWidth - 80) + 'px';
             platform.isHealth = isHealth;
             gameContainer.appendChild(platform);
             platforms.push({ element: platform, y: y, isHealth: isHealth });
@@ -200,7 +206,7 @@
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 if (!isJumping) {
-                    touchStartX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
+                    touchStartX = e.touches[0].clientX - containerLeft;
                     initialPlayerX = playerX;
                     velocity = jumpForce;
                     isJumping = true;
@@ -212,17 +218,22 @@
             gameContainer.addEventListener('touchmove', (e) => {
                 e.preventDefault();
                 if (isJumping) {
-                    const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
-                    playerX = Math.max(0, Math.min(touchX, gameContainer.offsetWidth - 40));
+                    const touchX = e.touches[0].clientX - containerLeft;
+                    playerX = Math.max(0, Math.min(touchX, containerWidth - 40));
                 }
             });
 
             gameContainer.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 if (isJumping) {
-                    const touchEndX = e.changedTouches[0].clientX - gameContainer.getBoundingClientRect().left;
-                    playerX = Math.max(0, Math.min(touchEndX, gameContainer.offsetWidth - 40));
+                    const touchEndX = e.changedTouches[0].clientX - containerLeft;
+                    playerX = Math.max(0, Math.min(touchEndX, containerWidth - 40));
                 }
+            });
+
+            window.addEventListener('resize', () => {
+                containerRect = gameContainer.getBoundingClientRect();
+                containerLeft = containerRect.left;
             });
         }
 
@@ -234,11 +245,10 @@
             if (gameStarted) {
                 if (!isMobile) {
                     if (leftPressed && playerX > 0) playerX -= moveSpeed;
-                    if (rightPressed && playerX < gameContainer.offsetWidth - playerWidth) playerX += moveSpeed;
+                    if (rightPressed && playerX < containerWidth - playerWidth) playerX += moveSpeed;
                 }
             }
 
-            // Only increase score if player is not at the bottom
             if (playerY > 0) {
                 score++;
                 scoreDisplay.textContent = `Score: ${score}`;

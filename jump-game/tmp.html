@@ -127,7 +127,7 @@
         let playerX = 180;
         let playerY = 0;
         let velocity = 0;
-        let horizontalVelocity = 0; // Still needed for desktop, but not mobile
+        let horizontalVelocity = 0; // Used for desktop only
         let isJumping = false;
         let health = 3;
         let score = 0;
@@ -218,12 +218,14 @@
             }
         });
 
-        // Mobile controls
+        // Mobile controls with drag support
         if (isMobile) {
+            let initialTouchX = 0;
+
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 if (!isJumping) {
-                    const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left; // Touch X relative to game container
+                    initialTouchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left; // Initial touch position
                     const midpoint = gameContainer.offsetWidth / 2;
 
                     // Trigger vertical jump
@@ -232,14 +234,28 @@
                     gameStarted = true;
                     playJumpSound();
 
-                    // Instantly set horizontal position
-                    if (touchX > midpoint && touchX > playerX) { // Right side, only if touch is right of player
-                        playerX = Math.min(touchX, gameContainer.offsetWidth - 40); // Cap at right edge
-                    } else if (touchX < midpoint && touchX < playerX) { // Left side, only if touch is left of player
-                        playerX = Math.max(touchX, 0); // Cap at left edge
+                    // Initial horizontal position (optional, can wait for touchmove)
+                    const touchX = initialTouchX;
+                    if (touchX > midpoint && touchX > playerX) {
+                        playerX = Math.min(touchX, gameContainer.offsetWidth - 40);
+                    } else if (touchX < midpoint && touchX < playerX) {
+                        playerX = Math.max(touchX, 0);
                     }
-                    // No movement if touch is behind player on same side
                 }
+            });
+
+            gameContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (isJumping) {
+                    const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
+                    // Update playerX instantly as user drags, within boundaries
+                    playerX = Math.max(0, Math.min(touchX, gameContainer.offsetWidth - 40));
+                }
+            });
+
+            gameContainer.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                // No additional action needed; playerX is already set to final touch position
             });
         }
 
@@ -256,7 +272,7 @@
                     if (leftPressed && playerX > 0) playerX -= moveSpeed;
                     if (rightPressed && playerX < gameContainer.offsetWidth - playerWidth) playerX += moveSpeed;
                 }
-                // No horizontal velocity updates needed for mobile since movement is instant
+                // Mobile horizontal movement handled in touch events
             }
 
             // Update score

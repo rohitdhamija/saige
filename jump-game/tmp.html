@@ -82,8 +82,7 @@
         let score = 0;
         let gameStarted = false;
         const gravity = 0.5;
-        const baseJumpForce = 12; // Minimum jump height
-        const maxJumpForce = 20;  // Maximum jump height
+        const jumpForce = 12; // Fixed jump height
         const moveSpeed = 5;
         const platforms = [];
         const platformSpeed = 2;
@@ -168,7 +167,7 @@
             switch(e.code) {
                 case 'Space':
                     if (!isJumping) {
-                        velocity = baseJumpForce; // Default for desktop
+                        velocity = jumpForce;
                         isJumping = true;
                         gameStarted = true;
                         playJumpSound();
@@ -194,67 +193,36 @@
             }
         });
 
-        if (isMobile) {
-            let touchStartX = 0;
-            let initialPlayerX = 0;
-            let touchStartTime = 0;
+        if (isMobile && window.DeviceMotionEvent) {
+            // Request permission for iOS 13+ devices
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            setupAccelerometer();
+                        } else {
+                            alert('Accelerometer permission denied. Using touch fallback.');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                setupAccelerometer();
+            }
+        }
 
-            gameContainer.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (!isJumping) {
-                    touchStartX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
-                    initialPlayerX = playerX;
-                    touchStartTime = performance.now(); // Start time in milliseconds
-                    velocity = baseJumpForce; // Initial jump, will adjust with drag
-                    isJumping = true;
-                    gameStarted = true;
-                    playJumpSound();
-                }
-            });
+        function setupAccelerometer() {
+            window.addEventListener('devicemotion', (e) => {
+                if (gameStarted) {
+                    const accelerationX = e.accelerationIncludingGravity.x; // X-axis tilt
+                    const tiltSpeed = accelerationX * -2; // Invert and scale (adjust sensitivity)
+                    playerX += tiltSpeed;
 
-            gameContainer.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                if (isJumping) {
-                    const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
-                    const currentTime = performance.now();
-                    const timeElapsed = (currentTime - touchStartTime) / 1000; // Convert to seconds
-                    const dragDistance = Math.abs(touchX - touchStartX);
-                    const dragSpeed = timeElapsed > 0 ? dragDistance / timeElapsed : 0; // Pixels per second
-
-                    // Scale jump force based on drag speed (100 px/s to 1000 px/s)
-                    const minSpeed = 100;
-                    const maxSpeed = 1000;
-                    let jumpForce = baseJumpForce;
-                    if (dragSpeed > minSpeed) {
-                        const speedRatio = Math.min((dragSpeed - minSpeed) / (maxSpeed - minSpeed), 1);
-                        jumpForce = baseJumpForce + (maxJumpForce - baseJumpForce) * speedRatio;
+                    // Screen wrapping
+                    if (playerX > gameContainer.offsetWidth - 40) {
+                        playerX = 0;
+                    } else if (playerX < 0) {
+                        playerX = gameContainer.offsetWidth - 40;
                     }
-                    velocity = Math.max(velocity, jumpForce); // Update velocity if higher
-
-                    playerX = Math.max(0, Math.min(touchX, gameContainer.offsetWidth - 40));
-                }
-            });
-
-            gameContainer.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                if (isJumping) {
-                    const touchEndX = e.changedTouches[0].clientX - gameContainer.getBoundingClientRect().left;
-                    const endTime = performance.now();
-                    const timeElapsed = (endTime - touchStartTime) / 1000;
-                    const dragDistance = Math.abs(touchEndX - touchStartX);
-                    const dragSpeed = timeElapsed > 0 ? dragDistance / timeElapsed : 0;
-
-                    // Final jump force adjustment
-                    const minSpeed = 100;
-                    const maxSpeed = 1000;
-                    let jumpForce = baseJumpForce;
-                    if (dragSpeed > minSpeed) {
-                        const speedRatio = Math.min((dragSpeed - minSpeed) / (maxSpeed - minSpeed), 1);
-                        jumpForce = baseJumpForce + (maxJumpForce - baseJumpForce) * speedRatio;
-                    }
-                    velocity = Math.max(velocity, jumpForce);
-
-                    playerX = Math.max(0, Math.min(touchEndX, gameContainer.offsetWidth - 40));
                 }
             });
         }
@@ -276,32 +244,32 @@
                 scoreDisplay.textContent = `Score: ${score}`;
             }
 
-            if (playerY <= 0 && velocity < 0) {
+            if (playerY <= 0 && velocity <= 0) {
                 playerY = 0;
-                velocity = 0;
-                horizontalVelocity = 0;
-                if (isJumping) {
-                    playLandSound();
-                    isJumping = false;
-                    health--;
+                velocity = jumpForce; // Auto-jump on ground
+                if (!gameStarted) {
+                    gameStarted = true; // Start game on first jump
+                }
+                playJumpSound();
+                isJumping = true;
+                health--;
+                updateHealthDisplay();
+                if (health <= 0) {
+                    playGameOverSound();
+                    alert(`Game Over! Final Score: ${score}. Refresh to restart.`);
+                    playerY = 0;
+                    playerX = 180;
+                    velocity = 0;
+                    horizontalVelocity = 0;
+                    health = 3;
+                    score = 0;
+                    gameStarted = false;
+                    scoreDisplay.textContent = `Score: ${score}`;
                     updateHealthDisplay();
-                    if (health <= 0) {
-                        playGameOverSound();
-                        alert(`Game Over! Final Score: ${score}. Refresh to restart.`);
-                        playerY = 0;
-                        playerX = 180;
-                        velocity = 0;
-                        horizontalVelocity = 0;
-                        health = 3;
-                        score = 0;
-                        gameStarted = false;
-                        scoreDisplay.textContent = `Score: ${score}`;
-                        updateHealthDisplay();
-                        platforms.forEach(p => gameContainer.removeChild(p.element));
-                        platforms.length = 0;
-                        for (let i = 0; i < 5; i++) {
-                            createPlatform(i * 150);
-                        }
+                    platforms.forEach(p => gameContainer.removeChild(p.element));
+                    platforms.length = 0;
+                    for (let i = 0; i < 5; i++) {
+                        createPlatform(i * 150);
                     }
                 }
             }
@@ -318,17 +286,14 @@
                     playerRect.left < platRect.right &&
                     velocity < 0) {
                     playerY = platform.y + 20;
-                    velocity = 0;
-                    horizontalVelocity = 0;
-                    if (isJumping) {
-                        playLandSound();
-                        isJumping = false;
-                        if (platform.isHealth && health < 3) {
-                            health++;
-                            updateHealthDisplay();
-                            platform.element.style.backgroundImage = `url('${platformImages[0]}')`;
-                            platform.isHealth = false;
-                        }
+                    velocity = jumpForce; // Auto-jump on platform
+                    playJumpSound();
+                    isJumping = true;
+                    if (platform.isHealth && health < 3) {
+                        health++;
+                        updateHealthDisplay();
+                        platform.element.style.backgroundImage = `url('${platformImages[0]}')`;
+                        platform.isHealth = false;
                     }
                 }
 

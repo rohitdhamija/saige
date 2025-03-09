@@ -82,7 +82,8 @@
         let score = 0;
         let gameStarted = false;
         const gravity = 0.5;
-        const jumpForce = 12;
+        const baseJumpForce = 12; // Minimum jump height
+        const maxJumpForce = 20;  // Maximum jump height
         const moveSpeed = 5;
         const platforms = [];
         const platformSpeed = 2;
@@ -167,7 +168,7 @@
             switch(e.code) {
                 case 'Space':
                     if (!isJumping) {
-                        velocity = jumpForce;
+                        velocity = baseJumpForce; // Default for desktop
                         isJumping = true;
                         gameStarted = true;
                         playJumpSound();
@@ -196,13 +197,15 @@
         if (isMobile) {
             let touchStartX = 0;
             let initialPlayerX = 0;
+            let touchStartTime = 0;
 
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 if (!isJumping) {
                     touchStartX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
                     initialPlayerX = playerX;
-                    velocity = jumpForce;
+                    touchStartTime = performance.now(); // Start time in milliseconds
+                    velocity = baseJumpForce; // Initial jump, will adjust with drag
                     isJumping = true;
                     gameStarted = true;
                     playJumpSound();
@@ -213,6 +216,21 @@
                 e.preventDefault();
                 if (isJumping) {
                     const touchX = e.touches[0].clientX - gameContainer.getBoundingClientRect().left;
+                    const currentTime = performance.now();
+                    const timeElapsed = (currentTime - touchStartTime) / 1000; // Convert to seconds
+                    const dragDistance = Math.abs(touchX - touchStartX);
+                    const dragSpeed = timeElapsed > 0 ? dragDistance / timeElapsed : 0; // Pixels per second
+
+                    // Scale jump force based on drag speed (100 px/s to 1000 px/s)
+                    const minSpeed = 100;
+                    const maxSpeed = 1000;
+                    let jumpForce = baseJumpForce;
+                    if (dragSpeed > minSpeed) {
+                        const speedRatio = Math.min((dragSpeed - minSpeed) / (maxSpeed - minSpeed), 1);
+                        jumpForce = baseJumpForce + (maxJumpForce - baseJumpForce) * speedRatio;
+                    }
+                    velocity = Math.max(velocity, jumpForce); // Update velocity if higher
+
                     playerX = Math.max(0, Math.min(touchX, gameContainer.offsetWidth - 40));
                 }
             });
@@ -221,6 +239,21 @@
                 e.preventDefault();
                 if (isJumping) {
                     const touchEndX = e.changedTouches[0].clientX - gameContainer.getBoundingClientRect().left;
+                    const endTime = performance.now();
+                    const timeElapsed = (endTime - touchStartTime) / 1000;
+                    const dragDistance = Math.abs(touchEndX - touchStartX);
+                    const dragSpeed = timeElapsed > 0 ? dragDistance / timeElapsed : 0;
+
+                    // Final jump force adjustment
+                    const minSpeed = 100;
+                    const maxSpeed = 1000;
+                    let jumpForce = baseJumpForce;
+                    if (dragSpeed > minSpeed) {
+                        const speedRatio = Math.min((dragSpeed - minSpeed) / (maxSpeed - minSpeed), 1);
+                        jumpForce = baseJumpForce + (maxJumpForce - baseJumpForce) * speedRatio;
+                    }
+                    velocity = Math.max(velocity, jumpForce);
+
                     playerX = Math.max(0, Math.min(touchEndX, gameContainer.offsetWidth - 40));
                 }
             });
@@ -238,7 +271,6 @@
                 }
             }
 
-            // Only increase score if player is not at the bottom
             if (playerY > 0) {
                 score++;
                 scoreDisplay.textContent = `Score: ${score}`;

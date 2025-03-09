@@ -12,6 +12,7 @@
             align-items: center;
             min-height: 100vh;
             background: #f0f0f0;
+            overflow: hidden; /* Prevent scrolling */
         }
         #game-container {
             width: 400px;
@@ -82,10 +83,15 @@
         let score = 0;
         let gameStarted = false;
         const gravity = 0.5;
-        const jumpForce = 12; // Fixed jump height
+        const jumpForce = 12;
         const moveSpeed = 5;
         const platforms = [];
         const platformSpeed = 2;
+
+        // Cache game container's initial position
+        let containerRect = gameContainer.getBoundingClientRect();
+        const containerLeft = containerRect.left;
+        const containerWidth = gameContainer.offsetWidth;
 
         const backgroundImages = ['assets/background1.jpeg', 'assets/background2.jpeg'];
         gameContainer.style.backgroundImage = `url('${backgroundImages[Math.floor(Math.random() * backgroundImages.length)]}')`;
@@ -138,7 +144,7 @@
             const image = isHealth ? 'assets/health-platform.png' : platformImages[Math.floor(Math.random() * platformImages.length)];
             platform.style.backgroundImage = `url('${image}')`;
             platform.style.bottom = y + 'px';
-            platform.style.left = Math.random() * (gameContainer.offsetWidth - 80) + 'px';
+            platform.style.left = Math.random() * (containerWidth - 80) + 'px';
             platform.isHealth = isHealth;
             gameContainer.appendChild(platform);
             platforms.push({ element: platform, y: y, isHealth: isHealth });
@@ -193,37 +199,42 @@
             }
         });
 
-        if (isMobile && window.DeviceMotionEvent) {
-            // Request permission for iOS 13+ devices
-            if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                DeviceMotionEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            setupAccelerometer();
-                        } else {
-                            alert('Accelerometer permission denied. Using touch fallback.');
-                        }
-                    })
-                    .catch(console.error);
-            } else {
-                setupAccelerometer();
-            }
-        }
+        if (isMobile) {
+            let touchStartX = 0;
+            let initialPlayerX = 0;
 
-        function setupAccelerometer() {
-            window.addEventListener('devicemotion', (e) => {
-                if (gameStarted) {
-                    const accelerationX = e.accelerationIncludingGravity.x; // X-axis tilt
-                    const tiltSpeed = accelerationX * -2; // Invert and scale (adjust sensitivity)
-                    playerX += tiltSpeed;
-
-                    // Screen wrapping
-                    if (playerX > gameContainer.offsetWidth - 40) {
-                        playerX = 0;
-                    } else if (playerX < 0) {
-                        playerX = gameContainer.offsetWidth - 40;
-                    }
+            gameContainer.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (!isJumping) {
+                    touchStartX = e.touches[0].clientX - containerLeft; // Use cached left position
+                    initialPlayerX = playerX;
+                    velocity = jumpForce;
+                    isJumping = true;
+                    gameStarted = true;
+                    playJumpSound();
                 }
+            });
+
+            gameContainer.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (isJumping) {
+                    const touchX = e.touches[0].clientX - containerLeft;
+                    playerX = Math.max(0, Math.min(touchX, containerWidth - 40));
+                }
+            });
+
+            gameContainer.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                if (isJumping) {
+                    const touchEndX = e.changedTouches[0].clientX - containerLeft;
+                    playerX = Math.max(0, Math.min(touchEndX, containerWidth - 40));
+                }
+            });
+
+            // Recalculate container position on resize (e.g., orientation change)
+            window.addEventListener('resize', () => {
+                containerRect = gameContainer.getBoundingClientRect();
+                containerLeft = containerRect.left;
             });
         }
 
@@ -235,7 +246,7 @@
             if (gameStarted) {
                 if (!isMobile) {
                     if (leftPressed && playerX > 0) playerX -= moveSpeed;
-                    if (rightPressed && playerX < gameContainer.offsetWidth - playerWidth) playerX += moveSpeed;
+                    if (rightPressed && playerX < containerWidth - playerWidth) playerX += moveSpeed;
                 }
             }
 
@@ -244,32 +255,32 @@
                 scoreDisplay.textContent = `Score: ${score}`;
             }
 
-            if (playerY <= 0 && velocity <= 0) {
+            if (playerY <= 0 && velocity < 0) {
                 playerY = 0;
-                velocity = jumpForce; // Auto-jump on ground
-                if (!gameStarted) {
-                    gameStarted = true; // Start game on first jump
-                }
-                playJumpSound();
-                isJumping = true;
-                health--;
-                updateHealthDisplay();
-                if (health <= 0) {
-                    playGameOverSound();
-                    alert(`Game Over! Final Score: ${score}. Refresh to restart.`);
-                    playerY = 0;
-                    playerX = 180;
-                    velocity = 0;
-                    horizontalVelocity = 0;
-                    health = 3;
-                    score = 0;
-                    gameStarted = false;
-                    scoreDisplay.textContent = `Score: ${score}`;
+                velocity = 0;
+                horizontalVelocity = 0;
+                if (isJumping) {
+                    playLandSound();
+                    isJumping = false;
+                    health--;
                     updateHealthDisplay();
-                    platforms.forEach(p => gameContainer.removeChild(p.element));
-                    platforms.length = 0;
-                    for (let i = 0; i < 5; i++) {
-                        createPlatform(i * 150);
+                    if (health <= 0) {
+                        playGameOverSound();
+                        alert(`Game Over! Final Score: ${score}. Refresh to restart.`);
+                        playerY = 0;
+                        playerX = 180;
+                        velocity = 0;
+                        horizontalVelocity = 0;
+                        health = 3;
+                        score = 0;
+                        gameStarted = false;
+                        scoreDisplay.textContent = `Score: ${score}`;
+                        updateHealthDisplay();
+                        platforms.forEach(p => gameContainer.removeChild(p.element));
+                        platforms.length = 0;
+                        for (let i = 0; i < 5; i++) {
+                            createPlatform(i * 150);
+                        }
                     }
                 }
             }
@@ -286,14 +297,17 @@
                     playerRect.left < platRect.right &&
                     velocity < 0) {
                     playerY = platform.y + 20;
-                    velocity = jumpForce; // Auto-jump on platform
-                    playJumpSound();
-                    isJumping = true;
-                    if (platform.isHealth && health < 3) {
-                        health++;
-                        updateHealthDisplay();
-                        platform.element.style.backgroundImage = `url('${platformImages[0]}')`;
-                        platform.isHealth = false;
+                    velocity = 0;
+                    horizontalVelocity = 0;
+                    if (isJumping) {
+                        playLandSound();
+                        isJumping = false;
+                        if (platform.isHealth && health < 3) {
+                            health++;
+                            updateHealthDisplay();
+                            platform.element.style.backgroundImage = `url('${platformImages[0]}')`;
+                            platform.isHealth = false;
+                        }
                     }
                 }
 

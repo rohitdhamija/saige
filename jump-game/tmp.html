@@ -30,7 +30,7 @@
             position: absolute;
             left: 180px;
             bottom: 0;
-            transition: bottom 0.1s, left 0.1s;
+            transition: bottom 0.1s; /* Only animate vertical movement */
         }
         .platform {
             width: 80px;
@@ -90,7 +90,7 @@
 
         // Cache game container's initial position
         let containerRect = gameContainer.getBoundingClientRect();
-        const containerLeft = containerRect.left;
+        let containerLeft = containerRect.left;
         const containerWidth = gameContainer.offsetWidth;
 
         const backgroundImages = ['assets/background1.jpeg', 'assets/background2.jpeg'];
@@ -206,7 +206,7 @@
             gameContainer.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 if (!isJumping) {
-                    touchStartX = e.touches[0].clientX - containerLeft; // Use cached left position
+                    touchStartX = e.touches[0].clientX - containerLeft;
                     initialPlayerX = playerX;
                     velocity = jumpForce;
                     isJumping = true;
@@ -231,7 +231,6 @@
                 }
             });
 
-            // Recalculate container position on resize (e.g., orientation change)
             window.addEventListener('resize', () => {
                 containerRect = gameContainer.getBoundingClientRect();
                 containerLeft = containerRect.left;

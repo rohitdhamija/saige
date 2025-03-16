@@ -1,9 +1,14 @@
-<!DOCTYPE html>
-<html>
 <head>
-    <title>Rabbit Jump</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        /* Add this new container style */
+        #stats-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 400px; /* Match game container width */
+            margin: 10px auto;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -12,7 +17,7 @@
             align-items: center;
             min-height: 100vh;
             background: #f0f0f0;
-            overflow: hidden; /* Prevent scrolling */
+            overflow: hidden;
         }
         #game-container {
             width: 400px;
@@ -30,7 +35,7 @@
             position: absolute;
             left: 180px;
             bottom: 0;
-            transition: bottom 0.1s; /* Only animate vertical movement */
+            transition: bottom 0.1s;
         }
         .platform {
             width: 80px;
@@ -43,7 +48,7 @@
             display: flex;
             align-items: center;
             gap: 5px;
-            margin: 10px;
+            /* Removed margin from here */
         }
         .heart {
             width: 24px;
@@ -56,10 +61,13 @@
     </style>
 </head>
 <body>
-    <div id="health-display">
-        <span id="health-label">Health:</span>
+    <!-- Wrap health and score in a container -->
+    <div id="stats-container">
+        <div id="health-display">
+            <span id="health-label">Health:</span>
+        </div>
+        <div id="score-display">Score: 0</div>
     </div>
-    <div id="score-display">Score: 0</div>
     <div id="game-container">
         <img id="player" src="assets/player-rabbit1.png" alt="Player Rabbit">
     </div>

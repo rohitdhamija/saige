@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Challenging Runner Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #E0F6FF);
+            text-align: center;
+            transition: background 0.5s ease;
+            font-family: 'Arial', sans-serif;
+        }
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #90EE90, #228B22);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 28px;
+            color: #4B0082; /* Dark purple (Indigo) */
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5); /* Light shadow for contrast */
+        }
+        #highScore {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 28px;
+            color: #8B0000; /* Dark red */
+            text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5); /* Light shadow for contrast */
+        }
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        #gameOverTitle {
+            font-size: 48px;
+            color: #FF4444;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+        }
+        #finalScoreDisplay {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            color: #333;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        How to Play: ↑ to Jump | ←/→ to Move | Collect Power-Ups (Silver = Speed, Green = Invincibility) | Avoid Red Obstacles | Press R to Restart
+    </div>
+    <div id="score">Score: 0</div>
+    <div id="highScore">High Score: 0</div>
+    <div id="gameOver">
+        <div id="gameOverTitle">Game Over!</div>
+        <div id="finalScoreDisplay">Final Score: <span id="finalScore">0</span></div>
+        <button id="restartButton">Restart (R)</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        // Constants
+        const CONSTANTS = {
+            GRAVITY: 1.2,
+            JUMP_STRENGTH: 16,
+            INITIAL_OBSTACLE_SPEED: 12,
+            INITIAL_SPAWN_RATE: 1000,
+            MAX_PARTICLES: 100,
+            FPS_LIMIT: 60,
+            POWERUP_DURATION: 3000,
+            POWERUP_SPAWN_INTERVAL: 10000,
+            SCORE_INTERVAL: 1000
+        };
+
+        // Game class to encapsulate state and logic
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById("gameCanvas");
+                if (!this.canvas.getContext) {
+                    alert("Canvas not supported in your browser!");
+                    return;
+                }
+                this.ctx = this.canvas.getContext("2d");
+                this.setupCanvas();
+                this.initializeGameState();
+                this.loadAssets();
+                this.setupEventListeners();
+            }
+
+            setupCanvas() {
+                this.canvas.width = window.innerWidth * 0.8;
+                this.canvas.height = window.innerHeight * 0.8;
+                Object.assign(this.canvas.style, {
+                    margin: "auto",
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)"
+                });
+            }
+
+            initializeGameState() {
+                this.score = 0;
+                this.highScore = localStorage.getItem("highScore") || 0;
+                this.obstacleSpeed = CONSTANTS.INITIAL_OBSTACLE_SPEED;
+                this.spawnRate = CONSTANTS.INITIAL_SPAWN_RATE;
+                this.gameOver = false;
+                this.lastFrameTime = 0;
+
+                this.backgrounds = ["#87CEEB", "#98FB98", "#FFB6C1", "#FFD700", "#B0E0E6"];
+                this.player = {
+                    x: 100,
+                    y: this.canvas.height - 80,
+                    width: 40,
+                    height: 40,
+                    speed: 5,
+                    dy: 0,
+                    onGround: true,
+                    poweredUp: false,
+                    jumping: false,
+                    animationFrame: 0,
+                    type: "normal"
+                };
+                this.obstacles = [];
+                this.powerUps = [];
+                this.particles = [];
+                this.keys = {};
+            }
+
+            loadAssets() {
+                this.sounds = {
+                    jump: new Audio('assets/jump.m4a'),
+                    powerUp: new Audio('assets/powerup-41954.mp3'),
+                    gameOver: new Audio('assets/videogame-death-sound-43894.mp3')
+                };
+                Object.values(this.sounds).forEach(sound => {
+                    sound.onerror = () => console.warn("Failed to load audio");
+                });
+            }
+
+            updateScore() {
+                document.getElementById("score").textContent = `Score: ${this.score}`;
+                document.getElementById("highScore").textContent = `High Score: ${this.highScore}`;
+                if (this.score % 10 === 0 && this.score > 0) { // Check every 10 points
+                    this.obstacleSpeed += 1; // Increase speed
+                    document.body.style.background = this.backgrounds[Math.floor(Math.random() * this.backgrounds.length)];
+                    this.spawnRate = Math.max(300, this.spawnRate - 150); // Optional: Keep spawn rate adjustment
+                    this.createParticleBurst(this.player.x + this.player.width/2, this.player.y, 20);
+                }
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    localStorage.setItem("highScore", this.highScore);
+                }
+            }
+
+            drawPlayer() {
+                this.ctx.save();
+                this.ctx.translate(this.player.x + this.player.width/2, this.player.y + this.player.height/2);
+                this.ctx.rotate(Math.sin(this.player.animationFrame) * 0.1);
+                this.ctx.fillStyle = this.player.poweredUp ? (this.player.type === "speed" ? "silver" : "gold") : "blue";
+                this.ctx.shadowBlur = this.player.poweredUp ? 20 : 0;
+                this.ctx.shadowColor = this.player.type === "speed" ? "white" : "yellow";
+                this.ctx.fillRect(-this.player.width/2, -this.player.height/2, this.player.width, this.player.height);
+                this.ctx.restore();
+                this.player.animationFrame += 0.2;
+            }
+
+            createParticle(x, y) {
+                return {
+                    x, y,
+                    size: Math.random() * 5 + 2,
+                    speedX: (Math.random() - 0.5) * 4,
+                    speedY: (Math.random() - 0.5) * 4,
+                    life: 60,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`
+                };
+            }
+
+            createParticleBurst(x, y, count) {
+                if (this.particles.length < CONSTANTS.MAX_PARTICLES) {
+                    for (let i = 0; i < Math.min(count, CONSTANTS.MAX_PARTICLES - this.particles.length); i++) {
+                        this.particles.push(this.createParticle(x, y));
+                    }
+                }
+            }
+
+            drawParticles() {
+                this.particles.forEach((p, i) => {
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    p.x += p.speedX;
+                    p.y += p.speedY;
+                    p.life--;
+                    if (p.life <= 0) this.particles.splice(i, 1);
+                });
+            }
+
+            drawObstacles() {
+                this.ctx.fillStyle = "red";
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = "darkred";
+                this.obstacles.forEach((obs, index) => {
+                    this.ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                    obs.x -= this.obstacleSpeed;
+                    if (obs.x + obs.width < 0) this.obstacles.splice(index, 1);
+                    if (this.checkCollision(this.player, obs)) {
+                        if (!this.player.poweredUp) {
+                            this.endGame();
+                        } else {
+                            this.obstacles.splice(index, 1);
+                            this.createParticleBurst(obs.x + obs.width/2, obs.y + obs.height/2, 15);
+                        }
+                    }
+                });
+                this.ctx.shadowBlur = 0;
+            }
+
+            spawnObstacle() {
+                if (!this.gameOver) {
+                    const type = Math.random();
+                    let height, width;
+                    if (type > 0.8) { height = 80; width = 25; }
+                    else if (type > 0.5) { height = 40; width = 40; }
+                    else if (type > 0.2) { height = 20; width = 50; }
+                    else { height = 60; width = 30; }
+                    this.obstacles.push({
+                        x: this.canvas.width,
+                        y: this.canvas.height - height - 30,
+                        width, height
+                    });
+                    if (Math.random() > 0.7 && this.obstacles.length > 0) {
+                        this.obstacles.push({
+                            x: this.obstacles[this.obstacles.length-1].x + 100,
+                            y: this.canvas.height - 40 - 30,
+                            width: 30,
+                            height: 40
+                        });
+                    }
+                    setTimeout(() => this.spawnObstacle(), this.spawnRate);
+                }
+            }
+
+            drawPowerUps() {
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowColor = "lime";
+                this.powerUps.forEach((power, index) => {
+                    this.ctx.fillStyle = power.type === "speed" ? "silver" : "green";
+                    this.ctx.beginPath();
+                    this.ctx.arc(power.x + power.width/2, power.y + power.height/2, power.width/2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    power.x -= this.obstacleSpeed;
+                    if (power.x + power.width < 0) this.powerUps.splice(index, 1);
+                    if (this.checkCollision(this.player, power)) {
+                        this.powerUps.splice(index, 1);
+                        this.handlePowerUp(power.type);
+                    }
+                });
+                this.ctx.shadowBlur = 0;
+            }
+
+            handlePowerUp(type) {
+                this.player.poweredUp = true;
+                this.player.type = type;
+                this.sounds.powerUp.play();
+                this.createParticleBurst(this.player.x + this.player.width/2, this.player.y + this.player.height/2, 10);
+                setTimeout(() => {
+                    this.player.poweredUp = false;
+                    this.player.type = "normal";
+                }, CONSTANTS.POWERUP_DURATION);
+                if (type === "speed") {
+                    this.player.speed *= 2;
+                    setTimeout(() => this.player.speed /= 2, CONSTANTS.POWERUP_DURATION);
+                }
+            }
+
+            checkCollision(rect1, rect2) {
+                return (rect1.x < rect2.x + rect2.width &&
+                        rect1.x + rect1.width > rect2.x &&
+                        rect1.y < rect2.y + rect2.height &&
+                        rect1.y + rect1.height > rect2.y);
+            }
+
+            endGame() {
+                this.gameOver = true;
+                this.sounds.gameOver.play();
+                const gameOverScreen = document.getElementById("gameOver");
+                gameOverScreen.style.display = "block";
+                document.getElementById("finalScore").textContent = this.score;
+                gameOverScreen.setAttribute("tabindex", "0");
+                gameOverScreen.focus();
+                clearInterval(this.powerUpInterval);
+                clearInterval(this.scoreInterval);
+            }
+
+            restartGame() {
+                this.initializeGameState();
+                document.getElementById("gameOver").style.display = "none";
+                this.spawnObstacle();
+                this.powerUpInterval = setInterval(() => this.spawnPowerUp(), CONSTANTS.POWERUP_SPAWN_INTERVAL);
+                this.scoreInterval = setInterval(() => {
+                    if (!this.gameOver) {
+                        this.score++;
+                        this.updateScore();
+                    }
+                }, CONSTANTS.SCORE_INTERVAL);
+                this.gameLoop(performance.now());
+            }
+
+            applyPhysics() {
+                if (!this.player.onGround) {
+                    this.player.y += this.player.dy;
+                    this.player.dy += CONSTANTS.GRAVITY;
+                    if (this.player.y >= this.canvas.height - 80) {
+                        this.player.y = this.canvas.height - 80;
+                        this.player.dy = 0;
+                        this.player.onGround = true;
+                        this.player.jumping = false;
+                    }
+                }
+            }
+
+            updatePlayer(timestamp) {
+                if (this.keys["ArrowUp"] && this.player.onGround && !this.player.jumping) {
+                    this.player.dy = -CONSTANTS.JUMP_STRENGTH;
+                    this.player.onGround = false;
+                    this.player.jumping = true;
+                    this.sounds.jump.play();
+                    this.createParticleBurst(this.player.x + this.player.width/2, this.player.y + this.player.height, 5);
+                }
+                if (this.keys["ArrowLeft"]) this.player.x = Math.max(0, this.player.x - this.player.speed);
+                if (this.keys["ArrowRight"]) this.player.x = Math.min(this.canvas.width - this.player.width, this.player.x + this.player.speed);
+            }
+
+            spawnPowerUp() {
+                if (!this.gameOver) {
+                    const type = Math.random() > 0.5 ? "invincibility" : "speed";
+                    this.powerUps.push({
+                        x: this.canvas.width,
+                        y: this.canvas.height - Math.random() * 250 - 50,
+                        width: 25,
+                        height: 25,
+                        type
+                    });
+                }
+            }
+
+            gameLoop(timestamp) {
+                if (!this.gameOver) {
+                    const deltaTime = timestamp - this.lastFrameTime;
+                    if (deltaTime >= 1000 / CONSTANTS.FPS_LIMIT) {
+                        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                        this.applyPhysics();
+                        this.updatePlayer(timestamp);
+                        this.drawParticles();
+                        this.drawPlayer();
+                        this.drawObstacles();
+                        this.drawPowerUps();
+                        this.lastFrameTime = timestamp;
+                    }
+                    requestAnimationFrame((time) => this.gameLoop(time));
+                }
+            }
+
+            setupEventListeners() {
+                document.addEventListener("keydown", (e) => {
+                    this.keys[e.key] = true;
+                    if (e.key === "r" && this.gameOver) this.restartGame();
+                });
+                document.addEventListener("keyup", (e) => {
+                    this.keys[e.key] = false;
+                    if (e.key === "ArrowUp") this.player.jumping = false;
+                });
+                document.getElementById("restartButton").addEventListener("click", () => this.restartGame());
+            }
+
+            start() {
+                this.spawnObstacle();
+                this.powerUpInterval = setInterval(() => this.spawnPowerUp(), CONSTANTS.POWERUP_SPAWN_INTERVAL);
+                this.scoreInterval = setInterval(() => {
+                    if (!this.gameOver) {
+                        this.score++;
+                        this.updateScore();
+                    }
+                }, CONSTANTS.SCORE_INTERVAL);
+                this.gameLoop(performance.now());
+            }
+        }
+
+        // Initialize and start game
+        const game = new Game();
+        if (game.canvas.getContext) {
+            game.start();
+        }
+    </script>
+</body>
+</html>

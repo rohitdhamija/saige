@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Hub</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+        }
+        .game-card {
+            position: relative;
+            width: 150px;
+            height: 180px;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+        .game-card:hover {
+            animation: shake 0.5s infinite alternate;
+        }
+        @keyframes shake {
+            0% { transform: rotate(-2deg); }
+            100% { transform: rotate(2deg); }
+        }
+        .game-card img {
+            width: 100%;
+            height: 150px;
+            transition: opacity 0.5s;
+        }
+        .game-card .preview {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 150px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .game-card:hover .preview {
+            opacity: 1;
+        }
+        .game-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        .home-btn {
+            margin: 20px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Game Khelo!</h1>
+    <div class="container">
+        <div class="game-card" onclick="location.href='jump-game/index.html'">
+            <img src="jump-game/assets/icon.png" alt="Rabbit Jump">
+            <div class="game-title">Rabbit Jump</div>
+        </div>
+        <div class="game-card" onclick="location.href='cube-run/index.html'">
+            <img src="cube-run/assets/icon.png" alt="Cube Run">
+            <div class="game-title">Cube Run</div>
+        </div>
+    </div>
+</body>
+</html>
